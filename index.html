@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>PDF Text Extractor — Hybrid Text Layer + OCR</title>
+<meta name="description" content="Extract all text from any PDF, 100% in your browser. Native text layer via pdf.js with automatic Tesseract.js OCR fallback for scanned pages. Private — no upload, no server.">
+<meta name="author" content="Bros.AI">
+<meta name="theme-color" content="#2563eb">
+<link rel="canonical" href="https://bros-ai.github.io/pdf-text-extractor/">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📄</text></svg>">
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="PDF Text Extractor — Text Layer + OCR, 100% in your browser">
+<meta property="og:description" content="Drag & drop a PDF and get all its text. Hybrid extraction: pdf.js text layer + Tesseract.js OCR fallback. Free, private, no upload.">
+<meta property="og:url" content="https://bros-ai.github.io/pdf-text-extractor/">
+<meta property="og:site_name" content="Bros.AI">
+<!-- Twitter / X -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="PDF Text Extractor — Text Layer + OCR, 100% in your browser">
+<meta name="twitter:description" content="Drag & drop a PDF and get all its text. Hybrid extraction with OCR fallback. Free, private, no upload.">
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --surface-2: #eef0f4;
+    --text: #1a1d23;
+    --text-dim: #5c6370;
+    --border: #d9dde3;
+    --accent: #2563eb;
+    --accent-soft: rgba(37, 99, 235, .1);
+    --ok: #16a34a;
+    --warn: #d97706;
+    --err: #dc2626;
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(0,0,0,.07), 0 4px 16px rgba(0,0,0,.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115;
+      --surface: #181b21;
+      --surface-2: #21252d;
+      --text: #e8eaed;
+      --text-dim: #9aa2af;
+      --border: #2e333d;
+      --accent: #3b82f6;
+      --accent-soft: rgba(59, 130, 246, .14);
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.3);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.55;
+    min-height: 100vh;
+    padding: 2rem 1rem 4rem;
+  }
+  main { max-width: 880px; margin: 0 auto; }
+
+  header { text-align: center; margin-bottom: 2rem; }
+  header h1 { font-size: 1.7rem; letter-spacing: -.02em; }
+  header p { color: var(--text-dim); margin-top: .35rem; font-size: .95rem; }
+
+  /* ---- Options bar ---- */
+  .options {
+    display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;
+    justify-content: center; margin-bottom: 1.25rem; font-size: .9rem;
+  }
+  .options label { color: var(--text-dim); display: flex; align-items: center; gap: .45rem; }
+  .options select {
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: .4rem .6rem; font: inherit; cursor: pointer;
+  }
+  .options select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* ---- Drop zone ---- */
+  #dropzone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: 3.2rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s, background .15s, transform .1s;
+    outline: none;
+  }
+  #dropzone:hover, #dropzone:focus-visible { border-color: var(--accent); }
+  #dropzone.dragover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    transform: scale(1.01);
+  }
+  #dropzone .icon { font-size: 2.6rem; display: block; margin-bottom: .6rem; }
+  #dropzone strong { color: var(--accent); }
+  #dropzone small { display: block; margin-top: .5rem; color: var(--text-dim); }
+  #fileInput { display: none; }
+
+  /* ---- Progress ---- */
+  #progressPanel {
+    display: none; margin-top: 1.25rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1rem 1.25rem; box-shadow: var(--shadow);
+  }
+  #progressPanel.active { display: block; }
+  .progress-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: .6rem; }
+  #statusText { font-size: .9rem; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #cancelBtn {
+    background: none; border: 1px solid var(--border); color: var(--err);
+    border-radius: 8px; padding: .3rem .8rem; font: inherit; font-size: .85rem; cursor: pointer;
+    flex-shrink: 0;
+  }
+  #cancelBtn:hover { background: var(--err); color: #fff; border-color: var(--err); }
+  .bar { height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+  .bar > div {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--accent), #7c3aed);
+    border-radius: 999px; transition: width .25s ease;
+  }
+
+  /* ---- Results ---- */
+  #results { display: none; margin-top: 1.5rem; }
+  #results.active { display: block; }
+  .results-toolbar {
+    display: flex; flex-wrap: wrap; gap: .6rem; align-items: center;
+    margin-bottom: 1rem;
+  }
+  .results-toolbar .spacer { flex: 1; }
+  .stats { font-size: .88rem; color: var(--text-dim); }
+  button.action {
+    background: var(--accent); color: #fff; border: none; border-radius: 8px;
+    padding: .5rem 1rem; font: inherit; font-size: .88rem; font-weight: 600;
+    cursor: pointer; display: inline-flex; align-items: center; gap: .4rem;
+    transition: filter .12s;
+  }
+  button.action:hover { filter: brightness(1.12); }
+  button.action.secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+
+  .doc-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    margin-bottom: 1.25rem; overflow: hidden;
+  }
+  .doc-card > h2 {
+    font-size: 1rem; padding: .8rem 1.15rem;
+    border-bottom: 1px solid var(--border); background: var(--surface-2);
+    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+  }
+  .doc-card > h2 .meta { font-weight: 400; font-size: .82rem; color: var(--text-dim); }
+
+  details.page {
+    border-bottom: 1px solid var(--border);
+  }
+  details.page:last-child { border-bottom: none; }
+  details.page > summary {
+    padding: .65rem 1.15rem; cursor: pointer; user-select: none;
+    display: flex; align-items: center; gap: .6rem; font-size: .9rem;
+    list-style: none;
+  }
+  details.page > summary::-webkit-details-marker { display: none; }
+  details.page > summary::before { content: "▸"; color: var(--text-dim); transition: transform .15s; }
+  details.page[open] > summary::before { transform: rotate(90deg); }
+  details.page > summary:hover { background: var(--accent-soft); }
+  .badge {
+    font-size: .7rem; font-weight: 700; letter-spacing: .04em;
+    padding: .12rem .5rem; border-radius: 999px; text-transform: uppercase;
+  }
+  .badge.text { background: rgba(22,163,74,.14); color: var(--ok); }
+  .badge.ocr  { background: rgba(217,119,6,.14); color: var(--warn); }
+  .badge.empty { background: rgba(220,38,38,.12); color: var(--err); }
+  .page-chars { margin-left: auto; font-size: .78rem; color: var(--text-dim); }
+  .page pre {
+    white-space: pre-wrap; word-break: break-word;
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+    font-size: .84rem; line-height: 1.6;
+    padding: .9rem 1.15rem 1.1rem;
+    background: var(--bg);
+    max-height: 420px; overflow-y: auto;
+  }
+
+  #errorBox {
+    display: none; margin-top: 1rem; padding: .9rem 1.15rem;
+    border: 1px solid var(--err); border-radius: var(--radius);
+    background: rgba(220,38,38,.08); color: var(--err); font-size: .9rem;
+  }
+  #errorBox.active { display: block; }
+
+  .toast {
+    position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--text); color: var(--bg); padding: .6rem 1.2rem;
+    border-radius: 999px; font-size: .88rem; opacity: 0; pointer-events: none;
+    transition: opacity .2s, transform .2s;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ---- Top actions ---- */
+  .top-actions {
+    display: flex; justify-content: center; gap: .6rem; margin-top: .9rem;
+  }
+  .top-actions a, .top-actions button {
+    display: inline-flex; align-items: center; gap: .4rem;
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--border); border-radius: 999px;
+    padding: .42rem 1rem; font: inherit; font-size: .85rem; font-weight: 600;
+    text-decoration: none; cursor: pointer;
+    transition: border-color .12s, background .12s;
+  }
+  .top-actions a:hover, .top-actions button:hover {
+    border-color: var(--accent); background: var(--accent-soft);
+  }
+
+  /* ---- Share modal ---- */
+  dialog#shareModal {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--surface); color: var(--text);
+    padding: 1.5rem; width: min(92vw, 420px);
+    box-shadow: 0 12px 48px rgba(0,0,0,.35);
+  }
+  dialog#shareModal::backdrop { background: rgba(0,0,0,.5); backdrop-filter: blur(3px); }
+  .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+  .modal-head h2 { font-size: 1.1rem; }
+  .modal-close {
+    background: none; border: none; color: var(--text-dim);
+    font-size: 1.4rem; line-height: 1; cursor: pointer; padding: .2rem .4rem; border-radius: 6px;
+  }
+  .modal-close:hover { background: var(--surface-2); color: var(--text); }
+  .share-link-row { display: flex; gap: .5rem; margin-bottom: 1rem; }
+  .share-link-row input {
+    flex: 1; min-width: 0; background: var(--surface-2); color: var(--text-dim);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: .5rem .7rem; font: inherit; font-size: .82rem;
+  }
+  .share-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
+  .share-grid a, .share-grid button {
+    display: flex; align-items: center; justify-content: center; gap: .45rem;
+    background: var(--surface-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: .55rem .5rem; font: inherit; font-size: .85rem; font-weight: 600;
+    text-decoration: none; cursor: pointer;
+    transition: border-color .12s, background .12s;
+  }
+  .share-grid a:hover, .share-grid button:hover { border-color: var(--accent); background: var(--accent-soft); }
+
+  footer {
+    text-align: center; margin-top: 3rem; font-size: .85rem; color: var(--text-dim);
+  }
+  footer a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>📄 PDF Text Extractor</h1>
+    <p>Hybrid extraction: native text layer first, automatic OCR fallback for scanned pages.
+       Everything runs <strong>locally in your browser</strong> — no file ever leaves your machine.</p>
+    <div class="top-actions">
+      <button id="shareBtn" type="button">🔗 Share</button>
+      <a href="https://github.com/Bros-AI/pdf-text-extractor" target="_blank" rel="noopener">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+        GitHub
+      </a>
+    </div>
+  </header>
+
+  <div class="options">
+    <label>Mode
+      <select id="modeSelect">
+        <option value="auto" selected>Auto (text layer + OCR fallback)</option>
+        <option value="text">Text layer only (fast)</option>
+        <option value="ocr">Force OCR on every page</option>
+      </select>
+    </label>
+    <label>OCR language
+      <select id="langSelect">
+        <option value="eng+fra" selected>English + Français</option>
+        <option value="eng">English</option>
+        <option value="fra">Français</option>
+        <option value="spa">Español</option>
+        <option value="deu">Deutsch</option>
+        <option value="ita">Italiano</option>
+        <option value="por">Português</option>
+      </select>
+    </label>
+  </div>
+
+  <div id="dropzone" role="button" tabindex="0" aria-label="Drop a PDF here or click to browse">
+    <span class="icon">⬇️</span>
+    Drag &amp; drop your PDF here, or <strong>click to browse</strong>
+    <small>You can also paste (Ctrl+V) a PDF from your clipboard · multiple files supported</small>
+    <input type="file" id="fileInput" accept="application/pdf,.pdf" multiple>
+  </div>
+
+  <div id="progressPanel">
+    <div class="progress-head">
+      <span id="statusText">Preparing…</span>
+      <button id="cancelBtn" type="button">Cancel</button>
+    </div>
+    <div class="bar"><div id="progressBar"></div></div>
+  </div>
+
+  <div id="errorBox" role="alert"></div>
+
+  <section id="results">
+    <div class="results-toolbar">
+      <button class="action" id="copyBtn" type="button">📋 Copy all text</button>
+      <button class="action secondary" id="downloadTxtBtn" type="button">💾 Download .txt</button>
+      <button class="action secondary" id="downloadMdBtn" type="button">💾 Download .md</button>
+      <span class="spacer"></span>
+      <span class="stats" id="statsText"></span>
+    </div>
+    <div id="docList"></div>
+  </section>
+
+  <footer>
+    Built with ❤️ by <a href="https://bros.ai" target="_blank" rel="noopener">Bros.AI</a>
+    · <a href="https://github.com/Bros-AI/pdf-text-extractor" target="_blank" rel="noopener">Open source on GitHub</a>
+    · Your PDFs never leave your device
+  </footer>
+</main>
+
+<dialog id="shareModal" aria-labelledby="shareTitle">
+  <div class="modal-head">
+    <h2 id="shareTitle">🔗 Share this tool</h2>
+    <button class="modal-close" id="shareClose" type="button" aria-label="Close">✕</button>
+  </div>
+  <div class="share-link-row">
+    <input id="shareUrl" type="text" readonly value="https://bros-ai.github.io/pdf-text-extractor/" aria-label="Page URL">
+    <button class="action" id="copyLinkBtn" type="button">Copy</button>
+  </div>
+  <div class="share-grid">
+    <button id="nativeShareBtn" type="button">📱 Share…</button>
+    <a id="shareX" target="_blank" rel="noopener">𝕏 / Twitter</a>
+    <a id="shareLinkedIn" target="_blank" rel="noopener">💼 LinkedIn</a>
+    <a id="shareWhatsApp" target="_blank" rel="noopener">💬 WhatsApp</a>
+    <a id="shareFacebook" target="_blank" rel="noopener">👥 Facebook</a>
+    <a id="shareEmail">✉️ Email</a>
+  </div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script type="module">
+import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs";
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs";
+
+// ---------- Constants ----------
+const OCR_TRIGGER_CHARS = 30;   // pages with fewer chars in the text layer get OCR'd (auto mode)
+const OCR_TARGET_DIM = 2400;    // render longest page side to ~this many px before OCR
+const MAX_FILE_MB = 200;
+
+// ---------- DOM ----------
+const $ = (id) => document.getElementById(id);
+const dropzone = $("dropzone"), fileInput = $("fileInput");
+const progressPanel = $("progressPanel"), progressBar = $("progressBar"), statusText = $("statusText");
+const results = $("results"), docList = $("docList"), statsText = $("statsText");
+const errorBox = $("errorBox"), toast = $("toast");
+
+// ---------- State ----------
+let ocrWorker = null, ocrWorkerLang = null;
+let cancelled = false, busy = false;
+const extractedDocs = []; // { name, pages: [{ num, text, source }] }
+
+// ---------- OCR worker (lazy, reused, rebuilt on language change) ----------
+async function getOcrWorker() {
+  const lang = $("langSelect").value;
+  if (ocrWorker && ocrWorkerLang === lang) return ocrWorker;
+  if (ocrWorker) { await ocrWorker.terminate(); ocrWorker = null; }
+  setStatus(`Loading OCR engine (${lang})…`);
+  ocrWorker = await Tesseract.createWorker(lang);
+  ocrWorkerLang = lang;
+  return ocrWorker;
+}
+
+// ---------- Text-layer extraction with layout reconstruction ----------
+function textFromContent(content) {
+  let out = "", lastY = null;
+  for (const item of content.items) {
+    if (!("str" in item)) continue;
+    const y = item.transform?.[5];
+    if (lastY !== null && y !== undefined && Math.abs(y - lastY) > 2 && out && !out.endsWith("\n")) {
+      out += "\n";
+    }
+    out += item.str;
+    if (item.hasEOL) out += "\n";
+    else if (item.str && !item.str.endsWith(" ")) out += " ";
+    if (y !== undefined) lastY = y;
+  }
+  // Normalize: collapse runs of spaces, trim line ends, collapse 3+ blank lines
+  return out
+    .replace(/[ \t]+/g, " ")
+    .replace(/ +\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+// ---------- OCR a single page ----------
+async function ocrPage(page, pageNum, totalPages, fileName) {
+  const worker = await getOcrWorker();
+  const base = page.getViewport({ scale: 1 });
+  const scale = Math.min(4, Math.max(1.5, OCR_TARGET_DIM / Math.max(base.width, base.height)));
+  const viewport = page.getViewport({ scale });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.ceil(viewport.width);
+  canvas.height = Math.ceil(viewport.height);
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  await page.render({ canvasContext: ctx, viewport }).promise;
+
+  setStatus(`OCR — ${fileName} · page ${pageNum}/${totalPages}…`);
+  const { data } = await worker.recognize(canvas);
+  canvas.width = canvas.height = 0; // release bitmap memory
+  return { text: (data.text || "").trim(), confidence: Math.round(data.confidence || 0) };
+}
+
+// ---------- Process one PDF ----------
+async function processPdf(file) {
+  const mode = $("modeSelect").value;
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const doc = { name: file.name, pages: [] };
+  const card = renderDocCard(doc, pdf.numPages);
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    if (cancelled) break;
+    setStatus(`Reading text layer — ${file.name} · page ${i}/${pdf.numPages}…`);
+    const page = await pdf.getPage(i);
+
+    let text = "", source = "text", confidence = null;
+    if (mode !== "ocr") {
+      text = textFromContent(await page.getTextContent());
+    }
+    const needsOcr = mode === "ocr" || (mode === "auto" && text.length < OCR_TRIGGER_CHARS);
+    if (needsOcr && !cancelled) {
+      try {
+        const r = await ocrPage(page, i, pdf.numPages, file.name);
+        if (r.text.length > text.length) { text = r.text; source = "ocr"; confidence = r.confidence; }
+      } catch (e) {
+        console.error(`OCR failed on page ${i}:`, e);
+      }
+    }
+
+    doc.pages.push({ num: i, text, source: text ? source : "empty", confidence });
+    appendPage(card, doc.pages[doc.pages.length - 1]);
+    page.cleanup();
+    bumpProgress();
+  }
+  await pdf.destroy();
+  extractedDocs.push(doc);
+}
+
+// ---------- Queue ----------
+let totalPagesAll = 0, donePagesAll = 0;
+
+async function handleFiles(fileList) {
+  const files = [...fileList].filter(f =>
+    f.type === "application/pdf" || /\.pdf$/i.test(f.name));
+  if (!files.length) return showError("Please drop PDF files only.");
+  const tooBig = files.find(f => f.size > MAX_FILE_MB * 1024 * 1024);
+  if (tooBig) return showError(`"${tooBig.name}" exceeds the ${MAX_FILE_MB} MB limit.`);
+  if (busy) return showError("Extraction already in progress — cancel it first or wait.");
+
+  busy = true; cancelled = false;
+  hideError();
+  extractedDocs.length = 0;
+  docList.innerHTML = "";
+  results.classList.add("active");
+  progressPanel.classList.add("active");
+  progressBar.style.width = "0%";
+  totalPagesAll = 0; donePagesAll = 0;
+
+  try {
+    // Pre-count pages for a truthful progress bar
+    setStatus("Opening documents…");
+    const counts = [];
+    for (const f of files) {
+      const pdf = await pdfjsLib.getDocument({ data: await f.arrayBuffer() }).promise;
+      counts.push(pdf.numPages);
+      totalPagesAll += pdf.numPages;
+      await pdf.destroy();
+    }
+    for (const f of files) {
+      if (cancelled) break;
+      await processPdf(f);
+    }
+    setStatus(cancelled ? "Cancelled." : "Done ✓");
+    updateStats();
+  } catch (e) {
+    console.error(e);
+    if (e?.name === "PasswordException") {
+      showError(`"${files[0]?.name}" is password-protected. Remove the password and try again.`);
+    } else if (e?.name === "InvalidPDFException") {
+      showError("This file is not a valid PDF (corrupted or wrong format).");
+    } else {
+      showError(`Extraction failed: ${e.message || e}`);
+    }
+    setStatus("Failed.");
+  } finally {
+    busy = false;
+    setTimeout(() => progressPanel.classList.remove("active"), 1200);
+  }
+}
+
+function bumpProgress() {
+  donePagesAll++;
+  progressBar.style.width = totalPagesAll
+    ? `${Math.round((donePagesAll / totalPagesAll) * 100)}%` : "100%";
+  updateStats();
+}
+
+// ---------- Rendering ----------
+function renderDocCard(doc, numPages) {
+  const card = document.createElement("div");
+  card.className = "doc-card";
+  const h = document.createElement("h2");
+  h.innerHTML = `📄 ${escapeHtml(doc.name)} <span class="meta">${numPages} page${numPages > 1 ? "s" : ""}</span>`;
+  card.appendChild(h);
+  docList.appendChild(card);
+  return card;
+}
+
+function appendPage(card, p) {
+  const d = document.createElement("details");
+  d.className = "page";
+  if (p.num === 1) d.open = true;
+  const badge = p.source === "ocr"
+    ? `<span class="badge ocr">OCR${p.confidence != null ? ` ${p.confidence}%` : ""}</span>`
+    : p.source === "empty"
+      ? `<span class="badge empty">no text</span>`
+      : `<span class="badge text">text layer</span>`;
+  d.innerHTML = `
+    <summary>Page ${p.num} ${badge}
+      <span class="page-chars">${p.text.length.toLocaleString()} chars</span>
+    </summary>
+    <pre>${escapeHtml(p.text || "(no text detected on this page)")}</pre>`;
+  card.appendChild(d);
+}
+
+function updateStats() {
+  const pages = extractedDocs.reduce((n, d) => n + d.pages.length, 0);
+  const chars = extractedDocs.reduce((n, d) => n + d.pages.reduce((m, p) => m + p.text.length, 0), 0);
+  const ocrPages = extractedDocs.reduce((n, d) => n + d.pages.filter(p => p.source === "ocr").length, 0);
+  statsText.textContent =
+    `${pages} page${pages !== 1 ? "s" : ""} · ${chars.toLocaleString()} chars` +
+    (ocrPages ? ` · ${ocrPages} via OCR` : "");
+}
+
+// ---------- Export ----------
+function fullText(markdown = false) {
+  return extractedDocs.map(doc => {
+    const head = markdown ? `# ${doc.name}` : `===== ${doc.name} =====`;
+    const body = doc.pages.map(p => {
+      const ph = markdown ? `\n## Page ${p.num}\n` : `\n----- Page ${p.num} -----\n`;
+      return ph + (p.text || "(empty)");
+    }).join("\n");
+    return head + "\n" + body;
+  }).join("\n\n");
+}
+
+function download(name, content, type) {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const a = Object.assign(document.createElement("a"), { href: url, download: name });
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+$("copyBtn").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(fullText());
+    showToast("Copied to clipboard ✓");
+  } catch {
+    showToast("Clipboard blocked — use Download instead");
+  }
+});
+$("downloadTxtBtn").addEventListener("click", () =>
+  download(baseName() + ".txt", fullText(false), "text/plain;charset=utf-8"));
+$("downloadMdBtn").addEventListener("click", () =>
+  download(baseName() + ".md", fullText(true), "text/markdown;charset=utf-8"));
+
+function baseName() {
+  return extractedDocs.length === 1
+    ? extractedDocs[0].name.replace(/\.pdf$/i, "") + "-extracted"
+    : "pdf-extraction";
+}
+
+// ---------- Input wiring: click, keyboard, drag & drop, paste ----------
+dropzone.addEventListener("click", () => fileInput.click());
+dropzone.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); }
+});
+fileInput.addEventListener("change", () => {
+  if (fileInput.files.length) handleFiles(fileInput.files);
+  fileInput.value = "";
+});
+
+let dragDepth = 0;
+window.addEventListener("dragenter", (e) => { e.preventDefault(); dragDepth++; dropzone.classList.add("dragover"); });
+window.addEventListener("dragleave", (e) => { e.preventDefault(); if (--dragDepth <= 0) { dragDepth = 0; dropzone.classList.remove("dragover"); } });
+window.addEventListener("dragover", (e) => e.preventDefault());
+window.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dragDepth = 0;
+  dropzone.classList.remove("dragover");
+  if (e.dataTransfer?.files?.length) handleFiles(e.dataTransfer.files);
+});
+
+window.addEventListener("paste", (e) => {
+  const files = [...(e.clipboardData?.files || [])];
+  if (files.length) handleFiles(files);
+});
+
+$("cancelBtn").addEventListener("click", () => { cancelled = true; setStatus("Cancelling…"); });
+
+// ---------- Share modal ----------
+const shareModal = $("shareModal");
+const SHARE_URL = "https://bros-ai.github.io/pdf-text-extractor/";
+const SHARE_TITLE = "PDF Text Extractor — free, private, in-browser OCR";
+const SHARE_TEXT = "Extract all text from any PDF right in your browser — text layer + OCR fallback, nothing uploaded. Free & open source:";
+
+$("shareUrl").value = SHARE_URL;
+$("shareX").href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(SHARE_TEXT)}&url=${encodeURIComponent(SHARE_URL)}`;
+$("shareLinkedIn").href = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(SHARE_URL)}`;
+$("shareWhatsApp").href = `https://wa.me/?text=${encodeURIComponent(SHARE_TEXT + " " + SHARE_URL)}`;
+$("shareFacebook").href = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(SHARE_URL)}`;
+$("shareEmail").href = `mailto:?subject=${encodeURIComponent(SHARE_TITLE)}&body=${encodeURIComponent(SHARE_TEXT + "\n\n" + SHARE_URL)}`;
+
+$("shareBtn").addEventListener("click", () => shareModal.showModal());
+$("shareClose").addEventListener("click", () => shareModal.close());
+shareModal.addEventListener("click", (e) => {
+  const r = shareModal.getBoundingClientRect();
+  const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+  if (!inside) shareModal.close();
+});
+$("copyLinkBtn").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(SHARE_URL); showToast("Link copied ✓"); }
+  catch { $("shareUrl").select(); showToast("Press Ctrl+C to copy"); }
+});
+$("nativeShareBtn").addEventListener("click", async () => {
+  if (navigator.share) {
+    try { await navigator.share({ title: SHARE_TITLE, text: SHARE_TEXT, url: SHARE_URL }); } catch {}
+  } else {
+    showToast("Native share not available on this device");
+  }
+});
+
+// ---------- UI helpers ----------
+function setStatus(msg) { statusText.textContent = msg; }
+function showError(msg) { errorBox.textContent = "⚠️ " + msg; errorBox.classList.add("active"); }
+function hideError() { errorBox.classList.remove("active"); }
+let toastTimer;
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), 2200);
+}
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+</script>
+</body>
+</html>
