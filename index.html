@@ -174,27 +174,59 @@
   #dropzone small { display: block; margin-top: .5rem; color: var(--text-dim); }
   #fileInput { display: none; }
 
-  /* ---- Progress ---- */
-  #progressPanel {
-    display: none; margin-top: 1.25rem;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 1rem 1.25rem; box-shadow: var(--shadow);
+  /* ---- Processing modal ---- */
+  dialog#processModal {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--surface); color: var(--text);
+    padding: 1.6rem; width: min(92vw, 400px); text-align: center;
+    box-shadow: 0 12px 48px rgba(0,0,0,.35);
   }
-  #progressPanel.active { display: block; }
-  .progress-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: .6rem; }
-  #statusText { font-size: .9rem; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #cancelBtn {
-    background: none; border: 1px solid var(--border); color: var(--err);
-    border-radius: 8px; padding: .3rem .8rem; font: inherit; font-size: .85rem; cursor: pointer;
-    flex-shrink: 0;
+  dialog#processModal::backdrop { background: rgba(0,0,0,.55); backdrop-filter: blur(4px); }
+  #processModal h2 { font-size: 1.05rem; margin-bottom: 1.1rem; }
+  .preview-wrap {
+    position: relative; display: none; margin: 0 auto 1.1rem; width: fit-content;
+    border-radius: 10px; overflow: hidden; border: 1px solid var(--border);
+    box-shadow: var(--shadow);
   }
-  #cancelBtn:hover { background: var(--err); color: #fff; border-color: var(--err); }
+  .preview-wrap.active { display: block; }
+  #previewCanvas { display: block; max-width: 210px; max-height: 270px; }
+  .scanline {
+    position: absolute; left: 0; right: 0; top: 0; height: 4px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    box-shadow: 0 0 14px 3px var(--accent);
+    animation: scan 1.5s ease-in-out infinite alternate;
+  }
+  @keyframes scan { from { top: 2%; } to { top: 96%; } }
+  .ocr-tag {
+    position: absolute; top: .45rem; right: .45rem;
+    background: var(--warn); color: #fff; font-size: .62rem; font-weight: 800;
+    letter-spacing: .06em; padding: .14rem .45rem; border-radius: 999px;
+  }
+  .doc-pulse { font-size: 3rem; margin-bottom: 1rem; animation: pulse 1.2s ease-in-out infinite; }
+  .doc-pulse.hidden { display: none; }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: .75; }
+    50% { transform: scale(1.12); opacity: 1; }
+  }
+  #statusText {
+    font-size: .88rem; color: var(--text-dim); margin-bottom: .8rem;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
   .bar { height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
   .bar > div {
     height: 100%; width: 0%;
     background: linear-gradient(90deg, var(--accent), #7c3aed);
     border-radius: 999px; transition: width .25s ease;
   }
+  .modal-foot {
+    display: flex; justify-content: space-between; align-items: center; margin-top: 1rem;
+  }
+  #pageCounter { font-size: .82rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  #cancelBtn {
+    background: none; border: 1px solid var(--border); color: var(--err);
+    border-radius: 8px; padding: .35rem .9rem; font: inherit; font-size: .85rem; cursor: pointer;
+  }
+  #cancelBtn:hover { background: var(--err); color: #fff; border-color: var(--err); }
 
   /* ---- Results ---- */
   #results { display: none; margin-top: 1.5rem; }
@@ -402,14 +434,6 @@
     <input type="file" id="fileInput" accept="application/pdf,.pdf" multiple>
   </div>
 
-  <div id="progressPanel">
-    <div class="progress-head">
-      <span id="statusText">Preparing…</span>
-      <button id="cancelBtn" type="button">Cancel</button>
-    </div>
-    <div class="bar"><div id="progressBar"></div></div>
-  </div>
-
   <div id="errorBox" role="alert"></div>
 
   <section id="results">
@@ -465,11 +489,34 @@
   </section>
 
   <footer>
+    <nav style="margin-bottom:.5rem">
+      <a href="pdf-to-text.html">PDF to Text</a> ·
+      <a href="ocr-pdf.html">OCR PDF</a> ·
+      <a href="how-to-extract-text-from-pdf.html">How-to Guide</a> ·
+      <a href="privacy.html">Privacy</a> ·
+      <a href="about.html">About</a>
+    </nav>
     Built with ❤️ by <a href="https://bros.ai" target="_blank" rel="noopener">Bros.AI</a>
     · <a href="https://github.com/Bros-AI/pdf-text-extractor" target="_blank" rel="noopener">Open source on GitHub</a>
     · Your PDFs never leave your device
   </footer>
 </main>
+
+<dialog id="processModal" aria-labelledby="processTitle" aria-live="polite">
+  <h2 id="processTitle">⚙️ Extracting your text…</h2>
+  <div class="preview-wrap" id="previewWrap">
+    <canvas id="previewCanvas" width="210" height="270"></canvas>
+    <div class="scanline"></div>
+    <span class="ocr-tag">OCR</span>
+  </div>
+  <div class="doc-pulse" id="pulseIcon">📄</div>
+  <p id="statusText">Preparing…</p>
+  <div class="bar"><div id="progressBar"></div></div>
+  <div class="modal-foot">
+    <span id="pageCounter"></span>
+    <button id="cancelBtn" type="button">Cancel</button>
+  </div>
+</dialog>
 
 <dialog id="shareModal" aria-labelledby="shareTitle">
   <div class="modal-head">
@@ -506,9 +553,24 @@ const MAX_FILE_MB = 200;
 // ---------- DOM ----------
 const $ = (id) => document.getElementById(id);
 const dropzone = $("dropzone"), fileInput = $("fileInput");
-const progressPanel = $("progressPanel"), progressBar = $("progressBar"), statusText = $("statusText");
+const processModal = $("processModal"), progressBar = $("progressBar"), statusText = $("statusText");
+const previewWrap = $("previewWrap"), previewCanvas = $("previewCanvas"), pulseIcon = $("pulseIcon");
+const pageCounter = $("pageCounter");
 const results = $("results"), docList = $("docList"), statsText = $("statsText");
 const errorBox = $("errorBox"), toast = $("toast");
+
+function showPreview(sourceCanvas) {
+  const ratio = Math.min(210 / sourceCanvas.width, 270 / sourceCanvas.height);
+  previewCanvas.width = Math.round(sourceCanvas.width * ratio);
+  previewCanvas.height = Math.round(sourceCanvas.height * ratio);
+  previewCanvas.getContext("2d").drawImage(sourceCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
+  previewWrap.classList.add("active");
+  pulseIcon.classList.add("hidden");
+}
+function hidePreview() {
+  previewWrap.classList.remove("active");
+  pulseIcon.classList.remove("hidden");
+}
 
 // ---------- State ----------
 let ocrWorker = null, ocrWorkerLang = null;
@@ -562,6 +624,7 @@ async function ocrPage(page, pageNum, totalPages, fileName) {
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   await page.render({ canvasContext: ctx, viewport }).promise;
+  showPreview(canvas);
 
   setStatus(`OCR — ${fileName} · page ${pageNum}/${totalPages}…`);
   const { data } = await worker.recognize(canvas);
@@ -587,6 +650,7 @@ async function processPdf(file) {
       text = textFromContent(await page.getTextContent());
     }
     const needsOcr = mode === "ocr" || (mode === "auto" && text.length < OCR_TRIGGER_CHARS);
+    if (!needsOcr) hidePreview();
     if (needsOcr && !cancelled) {
       try {
         const r = await ocrPage(page, i, pdf.numPages, file.name);
@@ -621,8 +685,10 @@ async function handleFiles(fileList) {
   extractedDocs.length = 0;
   docList.innerHTML = "";
   results.classList.add("active");
-  progressPanel.classList.add("active");
+  hidePreview();
   progressBar.style.width = "0%";
+  pageCounter.textContent = "";
+  processModal.showModal();
   totalPagesAll = 0; donePagesAll = 0;
 
   try {
@@ -653,7 +719,10 @@ async function handleFiles(fileList) {
     setStatus("Failed.");
   } finally {
     busy = false;
-    setTimeout(() => progressPanel.classList.remove("active"), 1200);
+    setTimeout(() => {
+      if (processModal.open) processModal.close();
+      if (!cancelled && !errorBox.classList.contains("active")) showToast("Extraction complete ✓");
+    }, 600);
   }
 }
 
@@ -661,6 +730,7 @@ function bumpProgress() {
   donePagesAll++;
   progressBar.style.width = totalPagesAll
     ? `${Math.round((donePagesAll / totalPagesAll) * 100)}%` : "100%";
+  pageCounter.textContent = `${donePagesAll} / ${totalPagesAll} pages`;
   updateStats();
 }
 
@@ -766,6 +836,7 @@ window.addEventListener("paste", (e) => {
 });
 
 $("cancelBtn").addEventListener("click", () => { cancelled = true; setStatus("Cancelling…"); });
+processModal.addEventListener("cancel", () => { cancelled = true; }); // Esc key
 
 // ---------- Share modal ----------
 const shareModal = $("shareModal");
