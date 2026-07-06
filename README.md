@@ -18,11 +18,14 @@ A single-file, zero-install web app that extracts **all text** from PDFs — ent
 - **Drag & drop** anywhere, click to browse, or paste a PDF with `Ctrl+V` — multi-file supported
 - **Modes**: Auto (hybrid) · Text layer only (fast) · Force OCR
 - **OCR languages**: English, Français, Español, Deutsch, Italiano, Português
-- Per-page collapsible results with source badges (`text layer` / `OCR n%` / `no text`)
-- Live progress bar with cancel, clear error messages (password-protected, corrupted files)
+- Per-page collapsible results with source badges (`text layer` / `OCR n%` / `no text`) and per-page copy
+- **Search** the extracted text with live highlighting and match counts
+- Processing modal with **live page preview + animated scan line** during OCR, progress, ETA and cancel
 - **Export**: copy all, download `.txt` or `.md` (with page headings)
 - **Share modal**: native share sheet, X/Twitter, LinkedIn, WhatsApp, Facebook, email
-- Dark/light theme follows your system · fully keyboard accessible
+- **Offline-capable PWA**: installable, service worker caches the app and libraries after first visit
+- OCR engine is lazy-loaded — the ~2 MB Tesseract library is only fetched if a page actually needs OCR
+- Dark/light theme follows your system · keyboard accessible · respects `prefers-reduced-motion`
 
 ## 🔒 Privacy
 

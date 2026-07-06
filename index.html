@@ -89,6 +89,11 @@
           "@type": "Question",
           "name": "What export formats are available?",
           "acceptedAnswer": { "@type": "Answer", "text": "Copy all text to the clipboard, or download it as a .txt file or a Markdown (.md) file with page headings." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does it work offline?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. The app is an installable PWA: after your first visit, a service worker caches the app and its libraries, so it keeps working without an internet connection. OCR languages you have already used are cached too." }
         }
       ]
     }
@@ -125,6 +130,9 @@
     }
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
   body {
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     background: var(--bg);
@@ -245,6 +253,21 @@
   }
   button.action:hover { filter: brightness(1.12); }
   button.action.secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+
+  .search-row { display: flex; gap: .7rem; align-items: center; margin-bottom: 1rem; }
+  #searchInput {
+    flex: 1; max-width: 340px; background: var(--surface); color: var(--text);
+    border: 1px solid var(--border); border-radius: 999px;
+    padding: .5rem 1rem; font: inherit; font-size: .88rem;
+  }
+  #searchInput:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  mark { background: #fde047; color: #1a1d23; border-radius: 3px; padding: 0 .1em; }
+  @media (prefers-color-scheme: dark) { mark { background: #a16207; color: #fff; } }
+  .pcopy {
+    background: none; border: none; cursor: pointer; font-size: .85rem;
+    padding: .1rem .3rem; border-radius: 6px; opacity: .55;
+  }
+  .pcopy:hover { opacity: 1; background: var(--accent-soft); }
 
   .doc-card {
     background: var(--surface); border: 1px solid var(--border);
@@ -441,8 +464,13 @@
       <button class="action" id="copyBtn" type="button">📋 Copy all text</button>
       <button class="action secondary" id="downloadTxtBtn" type="button">💾 Download .txt</button>
       <button class="action secondary" id="downloadMdBtn" type="button">💾 Download .md</button>
+      <button class="action secondary" id="expandBtn" type="button">⤢ Expand all</button>
       <span class="spacer"></span>
       <span class="stats" id="statsText"></span>
+    </div>
+    <div class="search-row">
+      <input id="searchInput" type="search" placeholder="🔍 Search in extracted text…" aria-label="Search in extracted text">
+      <span class="stats" id="searchCount" aria-live="polite"></span>
     </div>
     <div id="docList"></div>
   </section>
@@ -485,6 +513,10 @@
     <details>
       <summary>What export formats are available?</summary>
       <p>Copy all text to the clipboard, or download it as a .txt file or a Markdown (.md) file with page headings.</p>
+    </details>
+    <details>
+      <summary>Does it work offline?</summary>
+      <p>Yes. The app is an installable PWA: after your first visit, a service worker caches the app and its libraries, so it keeps working without an internet connection. OCR languages you have already used are cached too.</p>
     </details>
   </section>
 
@@ -539,7 +571,6 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js" defer></script>
 <script type="module">
 import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs";
 pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -578,10 +609,25 @@ let cancelled = false, busy = false;
 const extractedDocs = []; // { name, pages: [{ num, text, source }] }
 
 // ---------- OCR worker (lazy, reused, rebuilt on language change) ----------
+// Tesseract.js (~2 MB) is only fetched the first time a page actually needs OCR.
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error(`Failed to load ${src}`));
+    document.head.appendChild(s);
+  });
+}
+
 async function getOcrWorker() {
   const lang = $("langSelect").value;
   if (ocrWorker && ocrWorkerLang === lang) return ocrWorker;
   if (ocrWorker) { await ocrWorker.terminate(); ocrWorker = null; }
+  if (!window.Tesseract) {
+    setStatus("Downloading OCR engine…");
+    await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js");
+  }
   setStatus(`Loading OCR engine (${lang})…`);
   ocrWorker = await Tesseract.createWorker(lang);
   ocrWorkerLang = lang;
@@ -670,7 +716,12 @@ async function processPdf(file) {
 }
 
 // ---------- Queue ----------
-let totalPagesAll = 0, donePagesAll = 0;
+let totalPagesAll = 0, donePagesAll = 0, runStart = 0;
+
+function formatEta(seconds) {
+  if (seconds < 60) return `~${Math.max(1, Math.round(seconds))}s left`;
+  return `~${Math.round(seconds / 60)}min left`;
+}
 
 async function handleFiles(fileList) {
   const files = [...fileList].filter(f =>
@@ -684,12 +735,14 @@ async function handleFiles(fileList) {
   hideError();
   extractedDocs.length = 0;
   docList.innerHTML = "";
+  searchInput.value = ""; searchCount.textContent = "";
   results.classList.add("active");
   hidePreview();
   progressBar.style.width = "0%";
   pageCounter.textContent = "";
   processModal.showModal();
   totalPagesAll = 0; donePagesAll = 0;
+  runStart = performance.now();
 
   try {
     // Pre-count pages for a truthful progress bar
@@ -730,7 +783,13 @@ function bumpProgress() {
   donePagesAll++;
   progressBar.style.width = totalPagesAll
     ? `${Math.round((donePagesAll / totalPagesAll) * 100)}%` : "100%";
-  pageCounter.textContent = `${donePagesAll} / ${totalPagesAll} pages`;
+  let counter = `${donePagesAll} / ${totalPagesAll} pages`;
+  const remaining = totalPagesAll - donePagesAll;
+  if (donePagesAll >= 2 && remaining > 0) {
+    const perPage = (performance.now() - runStart) / donePagesAll;
+    counter += ` · ${formatEta((perPage * remaining) / 1000)}`;
+  }
+  pageCounter.textContent = counter;
   updateStats();
 }
 
@@ -757,10 +816,71 @@ function appendPage(card, p) {
   d.innerHTML = `
     <summary>Page ${p.num} ${badge}
       <span class="page-chars">${p.text.length.toLocaleString()} chars</span>
+      <button class="pcopy" type="button" title="Copy this page's text" aria-label="Copy page ${p.num} text">📋</button>
     </summary>
     <pre>${escapeHtml(p.text || "(no text detected on this page)")}</pre>`;
+  d.querySelector(".pcopy").addEventListener("click", async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try { await navigator.clipboard.writeText(p.text); showToast(`Page ${p.num} copied ✓`); }
+    catch { showToast("Clipboard blocked by the browser"); }
+  });
   card.appendChild(d);
 }
+
+// ---------- Search with highlighting ----------
+const searchInput = $("searchInput"), searchCount = $("searchCount");
+let searchTimer;
+searchInput.addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(applySearch, 150);
+});
+
+function highlightMatches(raw, query) {
+  const lower = raw.toLowerCase();
+  let html = "", i = 0, count = 0;
+  for (;;) {
+    const j = lower.indexOf(query, i);
+    if (j === -1) { html += escapeHtml(raw.slice(i)); break; }
+    html += escapeHtml(raw.slice(i, j)) + "<mark>" + escapeHtml(raw.slice(j, j + query.length)) + "</mark>";
+    i = j + query.length;
+    count++;
+  }
+  return { html, count };
+}
+
+function applySearch() {
+  const query = searchInput.value.trim().toLowerCase();
+  let total = 0, pagesWithMatch = 0;
+  document.querySelectorAll("details.page").forEach((d) => {
+    const pre = d.querySelector("pre");
+    if (pre.dataset.raw === undefined) pre.dataset.raw = pre.textContent;
+    const raw = pre.dataset.raw;
+    if (!query) {
+      pre.innerHTML = escapeHtml(raw);
+      d.style.display = "";
+      return;
+    }
+    const { html, count } = highlightMatches(raw, query);
+    if (!count) { d.style.display = "none"; d.open = false; return; }
+    pre.innerHTML = html;
+    d.style.display = "";
+    d.open = true;
+    total += count;
+    pagesWithMatch++;
+  });
+  searchCount.textContent = query
+    ? `${total.toLocaleString()} match${total !== 1 ? "es" : ""} on ${pagesWithMatch} page${pagesWithMatch !== 1 ? "s" : ""}`
+    : "";
+}
+
+// ---------- Expand / collapse all ----------
+$("expandBtn").addEventListener("click", () => {
+  const pages = [...document.querySelectorAll("details.page")];
+  const anyClosed = pages.some((d) => !d.open && d.style.display !== "none");
+  pages.forEach((d) => { if (d.style.display !== "none") d.open = anyClosed; });
+  $("expandBtn").textContent = anyClosed ? "⤡ Collapse all" : "⤢ Expand all";
+});
 
 function updateStats() {
   const pages = extractedDocs.reduce((n, d) => n + d.pages.length, 0);
@@ -884,6 +1004,11 @@ function showToast(msg) {
 function escapeHtml(s) {
   return s.replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// ---------- Offline support ----------
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 </script>
 </body>
