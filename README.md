@@ -1,5 +1,7 @@
 # 📄 PDF Text Extractor
 
+![PDF Text Extractor — extract all the text from any PDF in your browser](og-image.png)
+
 **[▶ Live demo — bros-ai.github.io/pdf-text-extractor](https://bros-ai.github.io/pdf-text-extractor/)**
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)

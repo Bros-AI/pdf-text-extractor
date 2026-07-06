@@ -4,22 +4,97 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light dark">
-<title>PDF Text Extractor — Hybrid Text Layer + OCR</title>
-<meta name="description" content="Extract all text from any PDF, 100% in your browser. Native text layer via pdf.js with automatic Tesseract.js OCR fallback for scanned pages. Private — no upload, no server.">
+<title>PDF Text Extractor — Free Online OCR, 100% in Your Browser | Bros.AI</title>
+<meta name="description" content="Free online PDF text extractor with OCR. Extract all text from any PDF — including scanned documents — 100% in your browser. No upload, no signup, no server: your files stay private.">
 <meta name="author" content="Bros.AI">
+<meta name="keywords" content="pdf text extractor, pdf to text, ocr pdf, extract text from pdf, scanned pdf to text, free pdf ocr, pdf ocr online, tesseract, pdf.js">
+<meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="theme-color" content="#2563eb">
 <link rel="canonical" href="https://bros-ai.github.io/pdf-text-extractor/">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📄</text></svg>">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<!-- Performance: warm up the CDN connection used by pdf.js / Tesseract -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
 <!-- Open Graph -->
 <meta property="og:type" content="website">
 <meta property="og:title" content="PDF Text Extractor — Text Layer + OCR, 100% in your browser">
-<meta property="og:description" content="Drag & drop a PDF and get all its text. Hybrid extraction: pdf.js text layer + Tesseract.js OCR fallback. Free, private, no upload.">
+<meta property="og:description" content="Drag & drop a PDF and get all its text — even from scans, thanks to built-in OCR. Free, private, no upload, open source.">
 <meta property="og:url" content="https://bros-ai.github.io/pdf-text-extractor/">
 <meta property="og:site_name" content="Bros.AI">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://bros-ai.github.io/pdf-text-extractor/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="PDF Text Extractor — extract all the text from any PDF in your browser">
 <!-- Twitter / X -->
-<meta name="twitter:card" content="summary">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="PDF Text Extractor — Text Layer + OCR, 100% in your browser">
-<meta name="twitter:description" content="Drag & drop a PDF and get all its text. Hybrid extraction with OCR fallback. Free, private, no upload.">
+<meta name="twitter:description" content="Drag & drop a PDF and get all its text — even from scans, thanks to built-in OCR. Free, private, no upload.">
+<meta name="twitter:image" content="https://bros-ai.github.io/pdf-text-extractor/og-image.png">
+<!-- Structured data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebApplication",
+      "@id": "https://bros-ai.github.io/pdf-text-extractor/#app",
+      "name": "PDF Text Extractor",
+      "url": "https://bros-ai.github.io/pdf-text-extractor/",
+      "description": "Free online PDF text extractor with OCR. Extracts the native text layer with pdf.js and falls back to Tesseract.js OCR for scanned pages — 100% client-side, no upload.",
+      "applicationCategory": "UtilityApplication",
+      "operatingSystem": "Any (web browser)",
+      "browserRequirements": "Requires JavaScript",
+      "image": "https://bros-ai.github.io/pdf-text-extractor/og-image.png",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "author": { "@type": "Organization", "name": "Bros.AI", "url": "https://bros.ai" },
+      "license": "https://github.com/Bros-AI/pdf-text-extractor/blob/main/LICENSE",
+      "featureList": [
+        "Drag & drop PDF text extraction",
+        "Automatic OCR for scanned pages (Tesseract.js)",
+        "Native text layer extraction (pdf.js)",
+        "6 OCR languages",
+        "Export to TXT and Markdown",
+        "100% client-side — files never uploaded"
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://bros-ai.github.io/pdf-text-extractor/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is this PDF text extractor free?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes — completely free and open source (MIT license). No signup, no watermark, no page limit." }
+        },
+        {
+          "@type": "Question",
+          "name": "Are my PDF files uploaded to a server?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. All processing (parsing and OCR) happens locally in your browser. Your files never leave your device." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does it work with scanned PDFs?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Pages without a usable text layer are automatically recognized with OCR (Tesseract.js), rendered at high resolution for accuracy, and each page shows a confidence score." }
+        },
+        {
+          "@type": "Question",
+          "name": "Which OCR languages are supported?",
+          "acceptedAnswer": { "@type": "Answer", "text": "English, French, Spanish, German, Italian and Portuguese — including combined English + French recognition." }
+        },
+        {
+          "@type": "Question",
+          "name": "What export formats are available?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Copy all text to the clipboard, or download it as a .txt file or a Markdown (.md) file with page headings." }
+        }
+      ]
+    }
+  ]
+}
+</script>
 <style>
   :root {
     --bg: #f6f7f9;
@@ -244,6 +319,39 @@
   }
   .share-grid a:hover, .share-grid button:hover { border-color: var(--accent); background: var(--accent-soft); }
 
+  /* ---- Info sections (how it works, FAQ) ---- */
+  .info { margin-top: 3.5rem; }
+  .info h2 { font-size: 1.25rem; margin-bottom: 1rem; letter-spacing: -.01em; }
+  .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .8rem; }
+  .steps li {
+    list-style: none; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1rem 1.1rem; font-size: .9rem;
+  }
+  .steps li strong { display: block; margin-bottom: .3rem; }
+  .steps li .step-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.6rem; height: 1.6rem; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent); font-weight: 700;
+    font-size: .85rem; margin-bottom: .55rem;
+  }
+  .faq { margin-top: 2.5rem; }
+  .faq details {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); margin-bottom: .6rem; overflow: hidden;
+  }
+  .faq summary {
+    padding: .8rem 1.1rem; cursor: pointer; font-weight: 600; font-size: .92rem;
+    user-select: none;
+  }
+  .faq summary:hover { background: var(--accent-soft); }
+  .faq details p { padding: 0 1.1rem .9rem; font-size: .9rem; color: var(--text-dim); }
+
+  noscript .noscript-warn {
+    display: block; margin: 1rem auto; max-width: 600px; text-align: center;
+    padding: 1rem; border: 1px solid var(--warn); border-radius: var(--radius);
+    background: rgba(217,119,6,.08); color: var(--warn);
+  }
+
   footer {
     text-align: center; margin-top: 3rem; font-size: .85rem; color: var(--text-dim);
   }
@@ -315,6 +423,47 @@
     <div id="docList"></div>
   </section>
 
+  <noscript>
+    <p class="noscript-warn">⚠️ This tool needs JavaScript: all PDF parsing and OCR run locally in your browser —
+    that's what keeps your files private. Please enable JavaScript to use it.</p>
+  </noscript>
+
+  <section class="info" aria-labelledby="how-title">
+    <h2 id="how-title">How it works</h2>
+    <ol class="steps">
+      <li><span class="step-num">1</span><strong>Drop your PDF</strong>
+        Drag &amp; drop, browse, or paste. Multiple files at once are supported — nothing is uploaded anywhere.</li>
+      <li><span class="step-num">2</span><strong>Hybrid extraction</strong>
+        The native text layer is read instantly with pdf.js; scanned pages are automatically recognized with Tesseract.js OCR at high resolution.</li>
+      <li><span class="step-num">3</span><strong>Get your text</strong>
+        Review each page with its source badge and OCR confidence, then copy everything or download as .txt or Markdown.</li>
+    </ol>
+  </section>
+
+  <section class="info faq" aria-labelledby="faq-title">
+    <h2 id="faq-title">Frequently asked questions</h2>
+    <details>
+      <summary>Is this PDF text extractor free?</summary>
+      <p>Yes — completely free and open source (MIT license). No signup, no watermark, no page limit.</p>
+    </details>
+    <details>
+      <summary>Are my PDF files uploaded to a server?</summary>
+      <p>No. All processing (parsing and OCR) happens locally in your browser. Your files never leave your device.</p>
+    </details>
+    <details>
+      <summary>Does it work with scanned PDFs?</summary>
+      <p>Yes. Pages without a usable text layer are automatically recognized with OCR (Tesseract.js), rendered at high resolution for accuracy, and each page shows a confidence score.</p>
+    </details>
+    <details>
+      <summary>Which OCR languages are supported?</summary>
+      <p>English, French, Spanish, German, Italian and Portuguese — including combined English + French recognition.</p>
+    </details>
+    <details>
+      <summary>What export formats are available?</summary>
+      <p>Copy all text to the clipboard, or download it as a .txt file or a Markdown (.md) file with page headings.</p>
+    </details>
+  </section>
+
   <footer>
     Built with ❤️ by <a href="https://bros.ai" target="_blank" rel="noopener">Bros.AI</a>
     · <a href="https://github.com/Bros-AI/pdf-text-extractor" target="_blank" rel="noopener">Open source on GitHub</a>
@@ -343,7 +492,7 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js" defer></script>
 <script type="module">
 import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs";
 pdfjsLib.GlobalWorkerOptions.workerSrc =
